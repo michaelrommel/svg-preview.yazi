@@ -49,46 +49,78 @@ end
 
 
 function M:preload(job)
+	local height
+	local width
+
+	local ostype = Command("uname")
+		:args({ "-o" })
+		:stdout(Command.PIPED)
+		:stderr(Command.PIPED)
+		:output()
+
+	if not ostype then
+		return 0
+	elseif not ostype.status.success then
+		return 0
+	end
+
+	if string.find(ostype.stdout, "Darwin") then
+		local output = Command("exiftool")
+			:args({ "-ImageSize", tostring(job.file.url) })
+			:stdout(Command.PIPED)
+			:stderr(Command.PIPED)
+			:output()
+
+		if not output then
+			return 0
+		elseif not output.status.success then
+			return 0
+		end
+		ya.dbg("exiftool: " .. tostring(output.stdout))
+		-- Image Size                      : 640x480
+		_, _, width, height = string.find(output.stdout, ".* (%d+)x(%d+).*")
+	elseif string.find(ostype.stdout, "Linux") then
+		local output = Command("identify")
+			:args({ tostring(job.file.url) })
+			:stdout(Command.PIPED)
+			:stderr(Command.PIPED)
+			:output()
+
+		if not output then
+			return 0
+		elseif not output.status.success then
+			return 0
+		end
+		ya.dbg("identify: " .. tostring(output.stdout))
+		-- network-labnet.svg SVG 640x480 640x480+0+0 16-bit sRGB 21094B 0.010u 0:00.005
+		_, _, width, height = string.find(output.stdout, ".* (%d+)x(%d+) .*")
+	else
+		return 0
+	end
+
 	local cache = ya.file_cache(job)
 	if not cache or fs.cha(cache) then
 		return 1
 	end
 
-	local output = Command("inkscape")
-		:args({ "-W", "-H", tostring(job.file.url) })
-		:stdout(Command.PIPED)
-		:stderr(Command.PIPED)
-		:output()
-
-	if not output then
-		return 0
-	elseif not output.status.success then
-		return 0
-	end
-
-	local height
-	local width
-	_, _, width, height = string.find(output.stdout, "(%d+).*\n(%d+).*\n")
-
 	local max_width = (width / height) >= (PREVIEW.max_width / PREVIEW.max_height)
 
 	local args = {
-		"--export-type=png",
-		max_width and "--export-width" or "--export-height",
+		"-f", "png", "-a",
+		max_width and "--width" or "--height",
 		max_width and tostring(PREVIEW.max_width) or tostring(PREVIEW.max_height),
 		tostring(job.file.url),
-		"-o", "-"
 	}
-	local child, code = Command("inkscape"):args(args):stdout(Command.PIPED):spawn()
+	local child, code = Command("rsvg-convert"):args(args):stdout(Command.PIPED):spawn()
 
 	if not child then
-		ya.err("spawn `inkscape` command returns " .. tostring(code))
+		ya.err("spawn `rsvg-convert` command returns " .. tostring(code))
 		return 0
 	end
 
 	local child_output, err = child:wait_with_output()
 	if err then
-		ya.err("inkscape returned an error" .. tostring(err))
+		ya.err("rsvg-convert returned an error" .. tostring(err))
 		return 0
 	end
 
