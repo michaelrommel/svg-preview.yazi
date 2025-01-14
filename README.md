@@ -1,17 +1,17 @@
-# inkscape-preview.yazi
+# svg-preview.yazi
 
 ## Installation
 
-ya pack -a michaelrommel/inkscape-preview
+ya pack -a michaelrommel/svg-preview
 
 ## Configuration
 
 ```
 [plugin]
 prepend_preloaders = [
-    { mime = "image/svg+xml", run = "inkscape-preview" }
+    { mime = "image/svg+xml", run = "svg-preview" }
 ]
 prepend_previewers = [
-    { mime = "image/vg+xml", run = "inkscape-preview" },
+    { mime = "image/svg+xml", run = "svg-preview" },
 ]
 ```
