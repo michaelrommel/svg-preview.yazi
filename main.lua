@@ -59,9 +59,9 @@ function M:preload(job)
 		:output()
 
 	if not ostype then
-		return 0
+		return true, Err("Could not run 'uname")
 	elseif not ostype.status.success then
-		return 0
+		return true, Err("'uname' failed")
 	end
 
 	if string.find(ostype.stdout, "Darwin") then
@@ -72,9 +72,9 @@ function M:preload(job)
 			:output()
 
 		if not output then
-			return 0
+			return true, Err("Could not run 'exiftool'")
 		elseif not output.status.success then
-			return 0
+			return true, Err("'exiftool' failed")
 		end
 		ya.dbg("exiftool: " .. tostring(output.stdout))
 		-- Image Size                      : 640x480
@@ -87,9 +87,9 @@ function M:preload(job)
 			:output()
 
 		if not output then
-			return 0
+			return true, Err("Could not run 'identify'")
 		elseif not output.status.success then
-			return 0
+			return true, Err("'identify' failed")
 		end
 		ya.dbg("identify: " .. tostring(output.stdout))
 		-- network-labnet.svg SVG 640x480 640x480+0+0 16-bit sRGB 21094B 0.010u 0:00.005
@@ -100,7 +100,7 @@ function M:preload(job)
 
 	local cache = ya.file_cache(job)
 	if not cache or fs.cha(cache) then
-		return 1
+		return true
 	end
 
 	local max_width = (width / height) >= (PREVIEW.max_width / PREVIEW.max_height)
@@ -115,19 +115,23 @@ function M:preload(job)
 
 	if not child then
 		ya.err("spawn `rsvg-convert` command returns " .. tostring(code))
-		return 0
+		return true, Err("spawn 'rsvg-convert' failed")
 	end
 
-	local child_output, err = child:wait_with_output()
-	if err then
-		ya.err("rsvg-convert returned an error" .. tostring(err))
-		return 0
+	local child_output, cerr = child:wait_with_output()
+	if cerr then
+		ya.err("rsvg-convert returned an error" .. tostring(cerr))
+		return true, cerr
 	end
 
 	local thumb = child_output.stdout
 	ya.dbg("length: " .. string.len(thumb))
-	return fs.write(cache, thumb) and 1 or 2
-	-- return status and status.success and 1 or 2
+	local ok, werr = fs.write(cache, thumb)
+	if ok then
+		return true
+	else
+		return false, werr
+	end
 end
 
 return M
