@@ -53,7 +53,7 @@ function M:preload(job)
 	local width
 
 	local ostype = Command("uname")
-		:args({ "-o" })
+		:arg({ "-o" })
 		:stdout(Command.PIPED)
 		:stderr(Command.PIPED)
 		:output()
@@ -66,7 +66,7 @@ function M:preload(job)
 
 	if string.find(ostype.stdout, "Darwin") then
 		local output = Command("exiftool")
-			:args({ "-ImageSize", tostring(job.file.url) })
+			:arg({ "-ImageSize", tostring(job.file.url) })
 			:stdout(Command.PIPED)
 			:stderr(Command.PIPED)
 			:output()
@@ -81,7 +81,7 @@ function M:preload(job)
 		_, _, width, height = string.find(output.stdout, ".* (%d+)x(%d+).*")
 	elseif string.find(ostype.stdout, "Linux") then
 		local output = Command("identify")
-			:args({ tostring(job.file.url) })
+			:arg({ tostring(job.file.url) })
 			:stdout(Command.PIPED)
 			:stderr(Command.PIPED)
 			:output()
@@ -98,20 +98,24 @@ function M:preload(job)
 		return 0
 	end
 
+	ya.dbg("creating cache")
 	local cache = ya.file_cache(job)
+	ya.dbg("cache is ", cache)
 	if not cache or fs.cha(cache) then
 		return true
 	end
 
-	local max_width = (width / height) >= (PREVIEW.max_width / PREVIEW.max_height)
+	local max_width = (width / height) >= (rt.preview.max_width / rt.preview.max_height)
+	ya.dbg("max width ", max_width)
 
 	local args = {
 		"-f", "png", "-a",
 		max_width and "--width" or "--height",
-		max_width and tostring(PREVIEW.max_width) or tostring(PREVIEW.max_height),
+		max_width and tostring(rt.preview.max_width) or tostring(rt.preview.max_height),
 		tostring(job.file.url),
 	}
-	local child, code = Command("rsvg-convert"):args(args):stdout(Command.PIPED):spawn()
+	ya.dbg("args for convert", arg)
+	local child, code = Command("rsvg-convert"):arg(args):stdout(Command.PIPED):spawn()
 
 	if not child then
 		ya.err("spawn `rsvg-convert` command returns " .. tostring(code))
